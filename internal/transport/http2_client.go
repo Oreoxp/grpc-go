@@ -394,6 +394,9 @@ func newHTTP2Client(connectCtx, ctx context.Context, addr resolver.Address, opts
 	// first, an error is pushed to the channel.  This must be checked before
 	// returning from this function.
 	readerErrCh := make(chan error, 1)
+	/*readbuf := make([]byte, 1500)
+	t.conn.Read(readbuf)
+	fmt.Println("read buf:", readbuf)*/
 	go t.reader(readerErrCh)
 	defer func() {
 		if err == nil {
@@ -403,7 +406,6 @@ func newHTTP2Client(connectCtx, ctx context.Context, addr resolver.Address, opts
 			t.Close(err)
 		}
 	}()
-
 	// Send connection preface to server.
 	n, err := t.conn.Write(clientPreface)
 	if err != nil {
@@ -428,6 +430,7 @@ func newHTTP2Client(connectCtx, ctx context.Context, addr resolver.Address, opts
 			Val: *opts.MaxHeaderListSize,
 		})
 	}
+
 	err = t.framer.fr.WriteSettings(ss...)
 	if err != nil {
 		err = connectionErrorf(true, err, "transport: failed to write initial settings frame: %v", err)
@@ -1202,9 +1205,11 @@ func (t *http2Client) handleSettings(f *http2.SettingsFrame, isFirst bool) {
 	f.ForeachSetting(func(s http2.Setting) error {
 		switch s.ID {
 		case http2.SettingMaxConcurrentStreams:
+			fmt.Println("setting     1111111")
 			maxStreams = new(uint32)
 			*maxStreams = s.Val
 		case http2.SettingMaxHeaderListSize:
+			fmt.Println("setting     2222222")
 			updateFuncs = append(updateFuncs, func() {
 				t.maxSendHeaderListSize = new(uint32)
 				*t.maxSendHeaderListSize = s.Val
@@ -1591,11 +1596,19 @@ func (t *http2Client) reader(errCh chan<- error) {
 
 	// loop to keep reading incoming messages on this transport.
 	for {
+		//对controlBuf存储添加了一个节流阀
+		//比方说，当controlBuf里存储着大量的Ping帧，incoming帧时，帧接收器需要进入阻塞状态，
+		//暂停接收服务器发送过来的帧。也就是说，这行会进入阻塞状态。
 		t.controlBuf.throttle()
 		frame, err := t.framer.fr.ReadFrame()
 		if t.keepaliveEnabled {
 			atomic.StoreInt64(&t.lastRead, time.Now().UnixNano())
 		}
+		fmt.Println("1111111", frame)
+		//size2 := frame.Header().Length
+		//mybuf := make([]byte, size2)
+		//_, err = io.ReadFull(t.conn, mybuf)
+		//fmt.Println("frame buf=", mybuf)
 		if err != nil {
 			// Abort an active stream if the http2.Framer returns a
 			// http2.StreamError. This can happen only if the server's response

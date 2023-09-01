@@ -912,7 +912,12 @@ func (s *Server) handleRawConn(lisAddr string, rawConn net.Conn) {
 		return
 	}
 	rawConn.SetDeadline(time.Now().Add(s.opts.connectionTimeout))
-
+	//preface := make([]byte, 24)
+	//_, err := io.ReadFull(rawConn, preface)
+	//println(string(preface), err)
+	//if err != nil {
+	//	fmt.Println("Error sending data:", err, preface)
+	//}
 	// Finish handshaking (HTTP2)
 	st := s.newHTTP2Transport(rawConn)
 	rawConn.SetDeadline(time.Time{})
